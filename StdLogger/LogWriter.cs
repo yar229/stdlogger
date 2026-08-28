@@ -9,6 +9,7 @@ internal sealed partial class LogWriter
     private readonly string _logDir;
     private readonly Func<DateTime> _clock;
     private readonly object _lock = new();
+    private bool _dirCreated;
 
     public LogWriter(string logDir, Func<DateTime>? clock = null)
     {
@@ -33,7 +34,11 @@ internal sealed partial class LogWriter
 
         lock (_lock)
         {
-            Directory.CreateDirectory(_logDir);
+            if (!_dirCreated)
+            {
+                Directory.CreateDirectory(_logDir);
+                _dirCreated = true;
+            }
             File.AppendAllText(logFile, $"[{now}] [{level,-5}] {message}{Environment.NewLine}");
         }
     }

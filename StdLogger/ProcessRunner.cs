@@ -19,7 +19,7 @@ internal sealed class ProcessRunner
 
     public async Task<int> RunAsync(string[] cmd)
     {
-        _writer.Write("INFO", $"StdLogger  for '{string.Join(" ", cmd)}'");
+        _writer.Write("INFO", $"StdLogger for '{string.Join(" ", cmd)}'");
 
         var psi = new ProcessStartInfo
         {
@@ -31,7 +31,7 @@ internal sealed class ProcessRunner
         for (int i = 1; i < cmd.Length; i++)
             psi.ArgumentList.Add(cmd[i]);
 
-        using var process = new Process { StartInfo = psi, EnableRaisingEvents = true };
+        using var process = new Process { StartInfo = psi };
 
         try
         {
