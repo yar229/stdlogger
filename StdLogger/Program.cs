@@ -32,6 +32,8 @@ internal static partial class Program
             return 0;
         }
 
+        WriteLog(logDir, "INFO", $"StdLogger  for '{string.Join(" ", rest)}'");
+
         return await RunCommand(rest, logDir);
     }
 
