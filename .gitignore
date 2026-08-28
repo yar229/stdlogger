@@ -1,0 +1,10 @@
+bin/
+obj/
+build/
+appsettings.*.json
+!appsettings.json
+!appsettings.Development.json
+*.user
+*.suo
+.vs/
+/appsettings.Development.json

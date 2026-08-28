@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="StdLogger.Tests/StdLogger.Tests.csproj" />
+  <Project Path="StdLogger/StdLogger.csproj" />
+</Solution>
