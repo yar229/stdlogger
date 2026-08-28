@@ -1,12 +1,13 @@
-﻿using System.IO;
+using System;
+using System.IO;
 
 namespace StdLogger.Tests;
 
-public class ProgramTests : IDisposable
+public class LogWriterTests : IDisposable
 {
     private readonly string _tempDir;
 
-    public ProgramTests()
+    public LogWriterTests()
     {
         _tempDir = Path.Combine(Path.GetTempPath(), "StdLogger.Tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(_tempDir);
@@ -17,6 +18,9 @@ public class ProgramTests : IDisposable
         if (Directory.Exists(_tempDir))
             Directory.Delete(_tempDir, recursive: true);
     }
+
+    private static LogWriter NewWriter(string dir, Func<DateTime>? clock = null)
+        => new LogWriter(dir, clock ?? (() => DateTime.Now));
 
     [Theory]
     [InlineData("[ERROR] boom", true, "ERROR")]
@@ -33,7 +37,9 @@ public class ProgramTests : IDisposable
     [InlineData("c:\\Scripts\\simpledns2router\\dnssync.csproj : warning NU1903: Package 'SSH.NET' 2025.0.0 has a", false, "WARNING")]
     public void ParseLine_DetectsKnownLevel_CaseInsensitive(string line, bool isError, string expected)
     {
-        (string level, string message) = Program.ParseLine(line, isError);
+        var writer = NewWriter(_tempDir);
+
+        (string level, string message) = writer.ParseLine(line, isError);
 
         Assert.Equal(expected, level);
         Assert.Equal(line, message);
@@ -44,7 +50,9 @@ public class ProgramTests : IDisposable
     [InlineData(true, "ERROR")]
     public void ParseLine_DefaultsLevel_WhenNoTagFound(bool isError, string expected)
     {
-        (string level, string _) = Program.ParseLine("some random output", isError);
+        var writer = NewWriter(_tempDir);
+
+        (string level, string _) = writer.ParseLine("some random output", isError);
 
         Assert.Equal(expected, level);
     }
@@ -52,15 +60,19 @@ public class ProgramTests : IDisposable
     [Fact]
     public void ParseLine_UnknownTagOutsideBrackets_NotTreatedAsLevel()
     {
-        (string level, string _) = Program.ParseLine("just [INFO-ish] text", isError: false);
+        var writer = NewWriter(_tempDir);
+
+        (string level, string _) = writer.ParseLine("just [INFO-ish] text", isError: false);
 
         Assert.Equal("INFO", level);
     }
 
     [Fact]
-    public void WriteLog_CreatesDatedFile_WithFormattedEntry()
+    public void Write_CreatesDatedFile_WithFormattedEntry()
     {
-        Program.WriteLog(_tempDir, "INFO", "hello world");
+        var writer = NewWriter(_tempDir);
+
+        writer.Write("INFO", "hello world");
 
         var file = Assert.Single(Directory.GetFiles(_tempDir, "log_*.log"));
         string content = File.ReadAllText(file);
@@ -69,10 +81,12 @@ public class ProgramTests : IDisposable
     }
 
     [Fact]
-    public void WriteLog_AppendsToSameDateFile()
+    public void Write_AppendsToSameDateFile()
     {
-        Program.WriteLog(_tempDir, "INFO", "first");
-        Program.WriteLog(_tempDir, "ERROR", "second");
+        var writer = NewWriter(_tempDir);
+
+        writer.Write("INFO", "first");
+        writer.Write("ERROR", "second");
 
         var file = Assert.Single(Directory.GetFiles(_tempDir, "log_*.log"));
         string[] lines = File.ReadAllLines(file);
@@ -83,13 +97,30 @@ public class ProgramTests : IDisposable
     }
 
     [Fact]
-    public void WriteLog_CreatesLogDirectory_IfMissing()
+    public void Write_CreatesLogDirectory_IfMissing()
     {
         string nested = Path.Combine(_tempDir, "a", "b");
+        var writer = NewWriter(nested);
 
-        Program.WriteLog(nested, "WARN", "creates dirs");
+        writer.Write("WARN", "creates dirs");
 
         Assert.True(Directory.Exists(nested));
         Assert.NotEmpty(Directory.GetFiles(nested, "log_*.log"));
+    }
+
+    [Fact]
+    public void Write_UsesInjectedClock_ForTimestampAndFileName()
+    {
+        var fixedTime = new DateTime(2026, 8, 28, 15, 30, 45);
+        var writer = NewWriter(_tempDir, () => fixedTime);
+
+        writer.Write("INFO", "timed message");
+
+        var file = Assert.Single(Directory.GetFiles(_tempDir, "log_2026-08-28.log"));
+        string content = File.ReadAllText(file);
+
+        var marker = "2026-08-28 15:30:45";
+        Assert.Contains(marker, content);
+        Assert.StartsWith($"[{marker}]", content);
     }
 }
