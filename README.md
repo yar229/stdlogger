@@ -56,10 +56,22 @@ myapp.exe 2>&1 | stdlogger --path D:\logs
 | `--path <dir>`    | Log to `<dir>` using the **default** `appsettings.json` that sits next to the executable. File sinks are redirected into `<dir>`. Relative `<dir>` is resolved against the executable's directory. |
 | `--config <file>` | Use the given JSON file for all Serilog settings **and** level patterns. Relative file-sink paths are resolved against the config file's directory. |
 
+## Output order
+
+The child's **stdout and stderr are read in parallel**. Both streams keep their identity, so a stderr line that matches no level pattern is logged as `Error` — but the interleaving **order between the two streams is not deterministic** (a trailing `2>&1` line may show up before earlier stdout lines, or vice versa).
+
+If you need the log to preserve the **exact chronological order** of the output, append `2>&1` to the command you run, so the child merges stderr into stdout itself:
+
+```cmd
+stdlogger --path D:\logs myapp.exe 2>&1
+```
+
+Lines then arrive in the same order they would appear in a console. Keep in mind that in this case stderr can no longer be distinguished, so lines matching no level pattern are logged as `Information` (not `Error`).
+
 ## What gets logged
 
 - **Level detection**: each output line is matched against the patterns in `StdLogger:LevelPatterns`. Patterns are tried in priority order — `Fatal` first, then `Error`, `Warning`, `Information`, `Debug`, `Verbose` — and the **first match wins** (a line containing both `[WARNING]` and `[ERROR]` is logged as `Error`).
-- **No match**: lines from stderr default to `Error`, lines from stdout to `Information`.
+- **No match**: lines from stderr default to `Error`, lines from stdout to `Information` (unless you merged the streams yourself with `2>&1`, see [Output order](#output-order)).
 - **Command starting fails**: an `Error` event is logged and exit code `1` is returned.
 - Otherwise the exit code of the child process is returned (`0` on success).
 
