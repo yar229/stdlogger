@@ -2,6 +2,7 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
+using System.Threading.Channels;
 using System.Threading.Tasks;
 
 namespace StdLogger;
@@ -43,15 +44,20 @@ internal sealed class ProcessRunner
             return 1;
         }
 
-        var stdoutTask = ReadStreamAsync(process.StandardOutput, isError: false);
-        var stderrTask = ReadStreamAsync(process.StandardError, isError: true);
+        var channel = Channel.CreateUnbounded<PendingLine>();
+        var consumerTask = ConsumeAsync(channel.Reader);
+        var stdoutTask = ReadStreamAsync(process.StandardOutput, channel.Writer, isError: false);
+        var stderrTask = ReadStreamAsync(process.StandardError, channel.Writer, isError: true);
 
         await Task.WhenAll(stdoutTask, stderrTask);
+        channel.Writer.TryComplete();
+        await consumerTask;
         await process.WaitForExitAsync();
+
         return process.ExitCode;
     }
 
-    private async Task ReadStreamAsync(TextReader reader, bool isError)
+    private static async Task ReadStreamAsync(StreamReader reader, ChannelWriter<PendingLine> writer, bool isError)
     {
         while (true)
         {
@@ -59,7 +65,17 @@ internal sealed class ProcessRunner
             if (line == null)
                 break;
 
-            _logger.Write(line, isError);
+            await writer.WriteAsync(new PendingLine(line, isError));
         }
     }
+
+    private async Task ConsumeAsync(ChannelReader<PendingLine> reader)
+    {
+        await foreach (var pending in reader.ReadAllAsync())
+        {
+            _logger.Write(pending.Line, pending.IsError);
+        }
+    }
+
+    private readonly record struct PendingLine(string Line, bool IsError);
 }
