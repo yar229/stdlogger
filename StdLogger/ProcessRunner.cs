@@ -8,18 +8,18 @@ namespace StdLogger;
 
 internal sealed class ProcessRunner
 {
-    private readonly LogWriter _writer;
-    private readonly TextWriter _stdoutMirror;
+    private readonly LineLogger _logger;
+    private readonly string? _sinksInfo;
 
-    public ProcessRunner(LogWriter writer, TextWriter? stdoutMirror = null)
+    public ProcessRunner(LineLogger logger, string? sinksInfo = null)
     {
-        _writer = writer;
-        _stdoutMirror = stdoutMirror ?? Console.Out;
+        _logger = logger;
+        _sinksInfo = sinksInfo;
     }
 
     public async Task<int> RunAsync(string[] cmd)
     {
-        _writer.Write("INFO", $"StdLogger for '{string.Join(" ", cmd)}'");
+        _logger.Header(string.Join(" ", cmd), _sinksInfo);
 
         var psi = new ProcessStartInfo
         {
@@ -39,7 +39,7 @@ internal sealed class ProcessRunner
         }
         catch (Exception ex) when (ex is InvalidOperationException or Win32Exception)
         {
-            _writer.Write("ERROR", $"Failed to start '{cmd[0]}': {ex.Message}");
+            _logger.StartError(cmd[0], ex.Message);
             return 1;
         }
 
@@ -59,12 +59,7 @@ internal sealed class ProcessRunner
             if (line == null)
                 break;
 
-            (string level, string message) = _writer.ParseLine(line, isError);
-
-            if (!isError)
-                _stdoutMirror.WriteLine(line);
-
-            _writer.Write(level, message);
+            _logger.Write(line, isError);
         }
     }
 }
