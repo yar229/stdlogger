@@ -68,6 +68,18 @@ stdlogger --path D:\logs myapp.exe 2>&1
 
 Lines then arrive in the same order they would appear in a console. Keep in mind that in this case stderr can no longer be distinguished, so lines matching no level pattern are logged as `Information` (not `Error`).
 
+### stdbuf (unbuffered output)
+
+To reduce ordering skew while **keeping the stdout/stderr split**, you can make the child's C-runtime output unbuffered with `stdbuf` (ships with Git for Windows / MSYS2 / Cygwin). A buffered child flushes stdout in one burst on exit, which makes those lines race ahead of earlier stderr lines; unbuffered output avoids that final burst, so lines arrive closer to the moment they were written:
+
+```bash
+stdlogger --path D:\logs stdbuf -oL -eL myapp.exe
+```
+
+`-oL` / `-eL` make stdout/stderr line-buffered; `-o0` / `-e0` disable buffering entirely.
+
+Limitations: `stdbuf` only works for programs linked against the MSYS2/Cygwin runtime (the tools shipped with Git Bash / MSYS2 / Cygwin). It cannot hook a native `cmd.exe` batch or an ordinary Windows executable, it does not guarantee exact cross-stream ordering, and the streams stay separate — so a stderr line that matches no level pattern is still logged as `Error`.
+
 ## What gets logged
 
 - **Level detection**: each output line is matched against the patterns in `StdLogger:LevelPatterns`. Patterns are tried in priority order — `Fatal` first, then `Error`, `Warning`, `Information`, `Debug`, `Verbose` — and the **first match wins** (a line containing both `[WARNING]` and `[ERROR]` is logged as `Error`).
