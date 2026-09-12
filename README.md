@@ -1,6 +1,6 @@
 # StdLogger
 
-A small .NET CLI tool that runs a command (or reads stdin) and routes its **stdout/stderr through Serilog**, assigning a log level to every line based on configurable regular expressions.
+A small .NET CLI tool that runs a command (or reads stdin) and routes its **stdout/stderr through Serilog**, assigning datetime and log level based on configurable regular expressions to every line.
 
 Logs can be written to the console and/or to dated files with daily rolling, while each line's level (`Fatal`…`Verbose`) is detected from its content — e.g. a line containing `[ERROR]` is logged as `Error`.
 
