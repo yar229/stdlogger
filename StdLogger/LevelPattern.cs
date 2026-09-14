@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Configuration;
@@ -14,7 +14,7 @@ internal sealed class LevelPattern
     public LevelPattern(string level, string pattern)
     {
         Level = level;
-        _regex = new Regex(pattern, RegexOptions.IgnoreCase | RegexOptions.IgnorePatternWhitespace);
+        _regex = new Regex(pattern, RegexOptions.IgnoreCase | RegexOptions.IgnorePatternWhitespace | RegexOptions.Compiled);
     }
 
     public Match Match(string line) => _regex.Match(line);
